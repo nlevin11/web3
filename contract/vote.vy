@@ -1,33 +1,33 @@
 # @version 0.3.7
 
 # Constants
-REVEAL_FEE: constant(uint256) = 10**16  # 0.01 ETH (or testnet equivalent) to reveal the punchline
+REVEAL_FEE: constant(uint256) = 10**16  # 0.01 ETH (or testnet equivalent)
 MAX_GUESSES: constant(uint256) = 3      # Maximum free guesses per user per joke
 
-# Joke structure with a mediaURI field to reference an IPFS hash or URL.
+# Joke structure with hashed options instead of string arrays
 struct Joke:
-    punchline: String[256]       # The full punchline text
-    punchlineHash: bytes32       # keccak256 hash of the punchline (used for validation)
-    mediaURI: String[256]        # IPFS hash or URL for the associated video/photo
+    punchline: String[128]       # The correct punchline text (for reveal only)
+    punchlineHash: bytes32       # keccak256 hash of the punchline
+    optionHashes: bytes32[4]     # Hashes of the 4 multiple-choice options
+    mediaURI: String[256]        # IPFS hash or URL for the video
     prizePool: uint256           # Accumulated funds from reveal fees
     answered: bool               # True if someone guessed correctly
+    winner: address              # Address of the winner
 
-# Mappings to store jokes and track per-user interactions.
+# Mappings
 jokes: public(HashMap[uint256, Joke])
 guesses: public(HashMap[uint256, HashMap[address, uint256]])
 revealed: public(HashMap[uint256, HashMap[address, bool]])
 
-# Contract owner (administrator)
+# Contract owner
 owner: public(address)
 
 # ------------------- Events -------------------
 
-event JokeAdded:
-    jokeId: uint256
-
 event CorrectGuess:
     jokeId: uint256
     user: address
+    prize: uint256
 
 event IncorrectGuess:
     jokeId: uint256
@@ -37,7 +37,7 @@ event IncorrectGuess:
 event PunchlineRevealed:
     jokeId: uint256
     user: address
-    punchline: String[256]
+    punchline: String[128]
 
 # ------------------- Constructor -------------------
 
@@ -45,93 +45,92 @@ event PunchlineRevealed:
 def __init__():
     self.owner = msg.sender
 
-# ------------------- Admin Functions -------------------
+# ------------------- Initialization -------------------
 
 @external
-def addJoke(jokeId: uint256, punchline: String[256], mediaURI: String[256]):
+def initializeJoke(jokeId: uint256, punchline: String[128], optionHashes: bytes32[4], mediaURI: String[256]):
     """
-    Adds a new joke to the contract.
-    Only the owner may add jokes.
-    - jokeId: A unique identifier for the joke.
-    - punchline: The punchline text (its keccak256 hash is stored for later validation).
-    - mediaURI: An IPFS hash or URL pointing to the joke's associated video/photo.
+    Initializes a joke with pre-hashed options.
+    - punchline: The correct punchline (stored for reveal).
+    - optionHashes: keccak256 hashes of the 4 options, where one matches punchlineHash.
     """
-    # Only the contract owner may add jokes.
-    assert msg.sender == self.owner, "Only owner can add jokes"
-    # Ensure the joke doesn't already exist (check that its hash is empty).
+    assert msg.sender == self.owner, "Only owner can initialize"
     assert self.jokes[jokeId].punchlineHash == empty(bytes32), "Joke already exists"
-    
-    punchline_hash: bytes32 = keccak256(convert(punchline, Bytes[256]))
-    
+    punchline_hash: bytes32 = keccak256(convert(punchline, Bytes[128]))
     self.jokes[jokeId] = Joke({
         punchline: punchline,
         punchlineHash: punchline_hash,
+        optionHashes: optionHashes,
         mediaURI: mediaURI,
         prizePool: 0,
-        answered: False
+        answered: False,
+        winner: empty(address)
     })
-    
-    log JokeAdded(jokeId)
 
 # ------------------- User Functions -------------------
 
 @external
-def guessPunchline(jokeId: uint256, guess: String[256]):
+def guessPunchline(jokeId: uint256, optionIndex: uint256):
     """
-    Allows a user to guess the punchline for a joke for free.
-    - The joke must exist and not be already answered.
-    - Each user is allowed up to MAX_GUESSES attempts.
-    - If the keccak256 hash of the provided guess matches the stored hash,
-      the joke is marked as answered and a CorrectGuess event is logged.
-    - Otherwise, an IncorrectGuess event is logged.
+    Guess the punchline by selecting an option index (0-3).
+    The selected option's hash is compared to the punchlineHash.
     """
     joke: Joke = self.jokes[jokeId]
     assert joke.punchlineHash != empty(bytes32), "Joke does not exist"
     assert not joke.answered, "Joke already answered"
+    assert optionIndex < 4, "Invalid option index; must be 0-3"
     
     user_attempts: uint256 = self.guesses[jokeId][msg.sender]
-    # Ensure the user has not exceeded the maximum free guesses.
-    assert user_attempts < MAX_GUESSES, "No guesses remaining; please pay to reveal the punchline"
+    assert user_attempts < MAX_GUESSES, "No guesses remaining; please pay to reveal"
     
-    # Record the guess.
     self.guesses[jokeId][msg.sender] = user_attempts + 1
     
-    guess_hash: bytes32 = keccak256(convert(guess, Bytes[256]))
-    if guess_hash == joke.punchlineHash:
+    selected_option_hash: bytes32 = joke.optionHashes[optionIndex]
+    
+    if selected_option_hash == joke.punchlineHash:
         self.jokes[jokeId].answered = True
-        log CorrectGuess(jokeId, msg.sender)
+        self.jokes[jokeId].winner = msg.sender
+        prize: uint256 = joke.prizePool
+        self.jokes[jokeId].prizePool = 0
+        if prize > 0:
+            send(msg.sender, prize)
+        log CorrectGuess(jokeId, msg.sender, prize)
     else:
-        log IncorrectGuess(jokeId, msg.sender, self.guesses[jokeId][msg.sender])
+        log IncorrectGuess(jokeId, msg.sender, user_attempts + 1)
 
 @external
 @payable
-def revealPunchline(jokeId: uint256) -> String[256]:
+def revealPunchline(jokeId: uint256) -> String[128]:
     """
-    Allows a user to pay to reveal the punchline after using up free guesses.
-    - The user must have already made at least MAX_GUESSES attempts.
-    - The call must send exactly REVEAL_FEE.
-    - The fee is added to the joke's prizePool.
-    - The function returns the punchline and logs the reveal event.
+    Pay to reveal the punchline after exhausting free guesses.
     """
     joke: Joke = self.jokes[jokeId]
     assert joke.punchlineHash != empty(bytes32), "Joke does not exist"
-    # Ensure the user has exhausted their free guesses.
     assert self.guesses[jokeId][msg.sender] >= MAX_GUESSES, "Guesses remaining; cannot reveal yet"
-    # Prevent multiple reveals by the same user.
     assert not self.revealed[jokeId][msg.sender], "Punchline already revealed"
-    assert msg.value == REVEAL_FEE, "Incorrect reveal fee"
+    assert msg.value == REVEAL_FEE, "Incorrect reveal fee; must be 0.01 ETH"
     
     self.jokes[jokeId].prizePool += msg.value
     self.revealed[jokeId][msg.sender] = True
     log PunchlineRevealed(jokeId, msg.sender, joke.punchline)
     return joke.punchline
 
+# ------------------- View Functions -------------------
+
+@external
+@view
+def getOptionHash(jokeId: uint256, index: uint256) -> bytes32:
+    """
+    Returns the hash of a single option for a given joke by index (0-3).
+    """
+    assert index < 4, "Index out of bounds"
+    joke: Joke = self.jokes[jokeId]
+    assert joke.punchlineHash != empty(bytes32), "Joke does not exist"
+    return joke.optionHashes[index]
+
 # ------------------- Withdrawal -------------------
 
 @external
 def withdraw():
-    """
-    Allows the contract owner to withdraw the entire balance held in the contract.
-    """
     assert msg.sender == self.owner, "Only owner can withdraw"
     send(self.owner, self.balance)

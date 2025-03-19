@@ -1,176 +1,318 @@
-// main.js
-// This file uses ethers.js to connect to MetaMask and interact with the Web3 Joke contract.
-
 import { ethers } from "https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.esm.min.js";
 
 // === Contract Setup ===
-const contractAddress = "0x3a6922Ec3238c04DA424E6aF1a7E6441A6B8362D"; // Replace with your deployed contract address
-const contractABI = [{"type":"event","name":"JokeAdded","inputs":[{"name":"jokeId","type":"uint256","components":null,"internalType":null,"indexed":false}],"anonymous":false},{"type":"event","name":"CorrectGuess","inputs":[{"name":"jokeId","type":"uint256","components":null,"internalType":null,"indexed":false},{"name":"user","type":"address","components":null,"internalType":null,"indexed":false}],"anonymous":false},{"type":"event","name":"IncorrectGuess","inputs":[{"name":"jokeId","type":"uint256","components":null,"internalType":null,"indexed":false},{"name":"user","type":"address","components":null,"internalType":null,"indexed":false},{"name":"attempt","type":"uint256","components":null,"internalType":null,"indexed":false}],"anonymous":false},{"type":"event","name":"PunchlineRevealed","inputs":[{"name":"jokeId","type":"uint256","components":null,"internalType":null,"indexed":false},{"name":"user","type":"address","components":null,"internalType":null,"indexed":false},{"name":"punchline","type":"string","components":null,"internalType":null,"indexed":false}],"anonymous":false},{"type":"constructor","stateMutability":"nonpayable","inputs":[]},{"type":"function","name":"addJoke","stateMutability":"nonpayable","inputs":[{"name":"jokeId","type":"uint256","components":null,"internalType":null},{"name":"punchline","type":"string","components":null,"internalType":null},{"name":"mediaURI","type":"string","components":null,"internalType":null}],"outputs":[]},{"type":"function","name":"guessPunchline","stateMutability":"nonpayable","inputs":[{"name":"jokeId","type":"uint256","components":null,"internalType":null},{"name":"guess","type":"string","components":null,"internalType":null}],"outputs":[]},{"type":"function","name":"revealPunchline","stateMutability":"payable","inputs":[{"name":"jokeId","type":"uint256","components":null,"internalType":null}],"outputs":[{"name":"","type":"string","components":null,"internalType":null}]},{"type":"function","name":"withdraw","stateMutability":"nonpayable","inputs":[],"outputs":[]},{"type":"function","name":"jokes","stateMutability":"view","inputs":[{"name":"arg0","type":"uint256","components":null,"internalType":null}],"outputs":[{"name":"","type":"tuple","components":[{"name":"punchline","type":"string","components":null,"internalType":null},{"name":"punchlineHash","type":"bytes32","components":null,"internalType":null},{"name":"mediaURI","type":"string","components":null,"internalType":null},{"name":"prizePool","type":"uint256","components":null,"internalType":null},{"name":"answered","type":"bool","components":null,"internalType":null}],"internalType":null}]},{"type":"function","name":"guesses","stateMutability":"view","inputs":[{"name":"arg0","type":"uint256","components":null,"internalType":null},{"name":"arg1","type":"address","components":null,"internalType":null}],"outputs":[{"name":"","type":"uint256","components":null,"internalType":null}]},{"type":"function","name":"revealed","stateMutability":"view","inputs":[{"name":"arg0","type":"uint256","components":null,"internalType":null},{"name":"arg1","type":"address","components":null,"internalType":null}],"outputs":[{"name":"","type":"bool","components":null,"internalType":null}]},{"type":"function","name":"owner","stateMutability":"view","inputs":[],"outputs":[{"name":"","type":"address","components":null,"internalType":null}]}];
+const contractAddress = "0x1af6c2193dc3544ffadd1402a16a15f305000020"; // Your deployed address
+const contractABI = [
+  {"type":"event","name":"CorrectGuess","inputs":[{"name":"jokeId","type":"uint256","indexed":false},{"name":"user","type":"address","indexed":false},{"name":"prize","type":"uint256","indexed":false}],"anonymous":false},
+  {"type":"event","name":"IncorrectGuess","inputs":[{"name":"jokeId","type":"uint256","indexed":false},{"name":"user","type":"address","indexed":false},{"name":"attempt","type":"uint256","indexed":false}],"anonymous":false},
+  {"type":"event","name":"PunchlineRevealed","inputs":[{"name":"jokeId","type":"uint256","indexed":false},{"name":"user","type":"address","indexed":false},{"name":"punchline","type":"string","indexed":false}],"anonymous":false},
+  {"type":"constructor","stateMutability":"nonpayable","inputs":[]},
+  {"type":"function","name":"initializeJoke","stateMutability":"nonpayable","inputs":[{"name":"jokeId","type":"uint256"},{"name":"punchline","type":"string"},{"name":"option0","type":"string"},{"name":"option1","type":"string"},{"name":"option2","type":"string"},{"name":"option3","type":"string"},{"name":"mediaURI","type":"string"}],"outputs":[]},
+  {"type":"function","name":"updateJoke","stateMutability":"nonpayable","inputs":[{"name":"jokeId","type":"uint256"},{"name":"newPunchline","type":"string"},{"name":"newOption0","type":"string"},{"name":"newOption1","type":"string"},{"name":"newOption2","type":"string"},{"name":"newOption3","type":"string"},{"name":"newMediaURI","type":"string"}],"outputs":[]},
+  {"type":"function","name":"guessPunchline","stateMutability":"nonpayable","inputs":[{"name":"jokeId","type":"uint256"},{"name":"optionIndex","type":"uint256"}],"outputs":[]},
+  {"type":"function","name":"revealPunchline","stateMutability":"payable","inputs":[{"name":"jokeId","type":"uint256"}],"outputs":[{"name":"","type":"string"}]},
+  {"type":"function","name":"withdraw","stateMutability":"nonpayable","inputs":[],"outputs":[]},
+  {"type":"function","name":"jokes","stateMutability":"view","inputs":[{"name":"arg0","type":"uint256"}],"outputs":[{"name":"","type":"tuple","components":[{"name":"punchline","type":"string"},{"name":"punchlineHash","type":"bytes32"},{"name":"optionHashes","type":"bytes32[4]"},{"name":"mediaURI","type":"string"},{"name":"prizePool","type":"uint256"},{"name":"answered","type":"bool"},{"name":"winner","type":"address"}]}]},
+  {"type":"function","name":"guesses","stateMutability":"view","inputs":[{"name":"arg0","type":"uint256"},{"name":"arg1","type":"address"}],"outputs":[{"name":"","type":"uint256"}]},
+  {"type":"function","name":"revealed","stateMutability":"view","inputs":[{"name":"arg0","type":"uint256"},{"name":"arg1","type":"address"}],"outputs":[{"name":"","type":"bool"}]},
+  {"type":"function","name":"owner","stateMutability":"view","inputs":[],"outputs":[{"name":"","type":"address"}]}
+];
 
-// === Global Variables ===
 let provider;
 let signer;
 let jokeContract;
 
-const MAX_GUESSES = 3; // Free guesses limit
-const revealFee = "0.01"; // in ETH, must match the contract's REVEAL_FEE
+const MAX_GUESSES = 2;
+const REVEAL_FEE = "0.01"; // in ETH
 
 // --- Video Configurations ---
-// For each video, set the associated jokeId, the time (in seconds) when the video should pause,
-// and the IPFS source URL.
 const videosConfig = [
   {
     jokeId: 1,
-    revealTime: 4, // Pause at 10 seconds
-    source: "https://dweb.link/ipfs/bafybeibflmvngea2tvk6jlk62fgdlgmwjvsax3wfswloc6lrgeufg6zcrm?filename=video1.mp4"
+    revealTime: 36, // seconds at which to pause and prompt
+    source: "https://dweb.link/ipfs/bafybeig5ij2seagzl75reejm5f6dkj4w2dowjy7asw55wuduek56rhesdu?filename=video1.mp4",
+    options: [
+      "All of the speeders are set free",
+      "The judge doesn't care and upholds her ticket",
+      "Lebron James shows up and pays the ticket",
+      "Lebron James saves the day"
+    ]
   },
   {
     jokeId: 2,
-    revealTime: 15, // Pause at 15 seconds
-    source: "https://dweb.link/ipfs/YOUR_IPFS_VIDEO_HASH_2?filename=video2.mp4"
-  },
-  {
-    jokeId: 3,
-    revealTime: 20, // Pause at 20 seconds
-    source: "https://dweb.link/ipfs/YOUR_IPFS_VIDEO_HASH_3?filename=video3.mp4"
+    revealTime: 4,
+    source: "https://dweb.link/ipfs/bafybeibflmvngea2tvk6jlk62fgdlgmwjvsax3wfswloc6lrgeufg6zcrm?filename=video1.mp4",
+    options: [
+      "He lands and survives",
+      "He lands and dies",
+      "He starts flying",
+      "He pops a parachute"
+    ]
   }
 ];
 
-let guessCounts = {}; // Tracks free guess counts per jokeId
-let currentVideoIndex = 0; // Index of the currently displayed video
+let currentVideoIndex = 0;
+// A flag to indicate if the current joke has been answered or skipped.
+let jokeAnswered = false;
+// Timeout variable to auto-resume video if no option is clicked.
+let optionsTimeout;
 
-// --- Wallet and Contract Setup ---
-async function connectWallet() {
-  if (window.ethereum) {
-    try {
-      await window.ethereum.request({ method: "eth_requestAccounts" });
-      provider = new ethers.providers.Web3Provider(window.ethereum);
-      signer = provider.getSigner();
-      jokeContract = new ethers.Contract(contractAddress, contractABI, signer);
-      console.log("Wallet connected");
-    } catch (err) {
-      console.error("User denied wallet access:", err);
+// --- Loading Indicator Functions ---
+function showLoading() {
+  const overlay = document.getElementById("loadingOverlay");
+  if (overlay) overlay.style.display = "flex";
+}
+
+function hideLoading() {
+  const overlay = document.getElementById("loadingOverlay");
+  if (overlay) overlay.style.display = "none";
+}
+
+// --- Utility: Check if Joke Is Initialized ---
+async function isJokeInitialized(jokeId) {
+  if (!jokeContract) {
+    alert("Wallet not connected. Please refresh after connecting your wallet.");
+    return false;
+  }
+  try {
+    const joke = await jokeContract.jokes(jokeId);
+    if (joke.punchlineHash === "0x0000000000000000000000000000000000000000000000000000000000000000") {
+      return false;
     }
-  } else {
-    alert("Please install MetaMask to use this app");
+    return true;
+  } catch (err) {
+    console.error("Error checking joke initialization:", err);
+    return false;
   }
 }
 
-// --- Guess and Reveal Functions ---
+// --- Utility: Continue Video Playback ---
+function continueVideoPlayback() {
+  jokeAnswered = true; // prevent further pauses
+  document.getElementById("optionsContainer").style.display = "none";
+  const video = document.getElementById("jokeVideo");
+  setTimeout(() => {
+    video.play().catch(console.error);
+  }, 50);
+}
 
-// Modified handleGuess: keeps prompting until user guesses correctly or free guesses are exhausted.
-// If the user cancels, it directly calls the paid reveal.
-async function handleGuess(jokeId) {
-  // Initialize guess count if not already set for this jokeId.
-  if (guessCounts[jokeId] === undefined) {
-    guessCounts[jokeId] = 0;
+// --- Utility: Display Skip Button After Error ---
+function displaySkipButton() {
+  const optionsDiv = document.getElementById("options");
+  // If a skip button already exists, do nothing.
+  if (document.getElementById("skipButton")) return;
+  const skipButton = document.createElement("button");
+  skipButton.id = "skipButton";
+  skipButton.textContent = "Skip and Continue Video";
+  skipButton.addEventListener("click", () => {
+    continueVideoPlayback();
+    skipButton.remove();
+  });
+  optionsDiv.appendChild(skipButton);
+}
+
+// --- Wallet and Contract Setup ---
+async function connectWallet() {
+  if (!window.ethereum) {
+    alert("Please install MetaMask to use this app");
+    return;
   }
-  
-  let isAnswered = false;
-  // Continue to prompt while free guesses remain and the joke is not answered.
-  while (guessCounts[jokeId] < MAX_GUESSES && !isAnswered) {
-    let promptMessage = `Enter your guess for the punchline. You have ${MAX_GUESSES - guessCounts[jokeId]} free guess(es) remaining. Press Cancel to pay and reveal the punchline.`;
-    let guess = prompt(promptMessage);
-    if (guess === null) {
-      // User canceled the prompt; require paid reveal.
-      await handleReveal(jokeId);
+  try {
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    const network = await provider.getNetwork();
+    const expectedChainId = 11155111; // Sepolia chain id
+    if (network.chainId !== expectedChainId) {
+      alert(`Please switch MetaMask to Sepolia (chain ID ${expectedChainId})`);
       return;
     }
-    try {
-      // Call the contract function with the guess.
-      const tx = await jokeContract.guessPunchline(jokeId, guess);
-      await tx.wait();
-      guessCounts[jokeId]++;
-      // Check contract state to see if the joke has been answered.
-      const joke = await jokeContract.jokes(jokeId);
-      if (joke.answered) {
-        alert("Correct guess! The joke has been answered.");
-        isAnswered = true;
-        return;
+    await provider.send("eth_requestAccounts", []);
+    signer = provider.getSigner();
+    const userAddress = await signer.getAddress();
+    jokeContract = new ethers.Contract(contractAddress, contractABI, signer);
+    console.log("Connected address:", userAddress);
+  } catch (err) {
+    console.error("Wallet connection failed:", err);
+    alert("Failed to connect wallet: " + err.message);
+  }
+}
+
+// --- Timeupdate Handler ---
+async function timeUpdateHandler(event) {
+  const video = event.target;
+  if (jokeAnswered) {
+    video.removeEventListener("timeupdate", timeUpdateHandler);
+    return;
+  }
+  const config = videosConfig[currentVideoIndex];
+  if (video.currentTime >= config.revealTime && !video.paused) {
+    video.pause();
+    await displayOptions(config.jokeId);
+  }
+}
+
+// --- Setup Video Listener ---
+function setupVideoListener() {
+  const video = document.getElementById("jokeVideo");
+  video.removeEventListener("timeupdate", timeUpdateHandler);
+  video.addEventListener("timeupdate", timeUpdateHandler);
+  video.onerror = function() {
+    console.error("Video error:", video.error);
+    alert("Error loading video. Please try refreshing the page.");
+  };
+}
+
+// --- Video Update ---
+function updateVideo() {
+  const video = document.getElementById("jokeVideo");
+  const config = videosConfig[currentVideoIndex];
+  video.src = config.source;
+  video.load();
+  video.currentTime = 0;
+  jokeAnswered = false;
+  document.getElementById("optionsContainer").style.display = "none";
+  if (optionsTimeout) clearTimeout(optionsTimeout);
+  setupVideoListener();
+  video.play().catch(console.error);
+}
+
+// --- Guess and Reveal Functions ---
+async function handleGuess(jokeId, optionIndex) {
+  if (!jokeContract) {
+    alert("Wallet not connected. Please refresh after connecting your wallet.");
+    continueVideoPlayback();
+    return;
+  }
+  if (!(await isJokeInitialized(jokeId))) {
+    alert("This joke has not been initialized yet.");
+    continueVideoPlayback();
+    return;
+  }
+  try {
+    showLoading();
+    const userAddress = await signer.getAddress();
+    const guessCount = Number(await jokeContract.guesses(jokeId, userAddress));
+    if (guessCount >= MAX_GUESSES) {
+      hideLoading();
+      if (confirm("No free guesses left. Pay 0.01 ETH to reveal the punchline?")) {
+        await handleReveal(jokeId);
       } else {
-        alert("Incorrect guess. Please try again.");
+        displaySkipButton();
       }
-    } catch (err) {
-      console.error("Error submitting guess:", err);
       return;
     }
-  }
-  
-  // If free guesses are exhausted and the joke is still not answered, require payment.
-  if (!isAnswered) {
-    alert("You have exhausted your free guesses. Please pay to reveal the punchline.");
-    await handleReveal(jokeId);
+    const tx = await jokeContract.guessPunchline(jokeId, optionIndex, { gasLimit: 300000 });
+    await tx.wait();
+    hideLoading();
+    const joke = await jokeContract.jokes(jokeId);
+    if (joke.answered) {
+      alert("Correct! The joke has been answered.");
+      jokeAnswered = true;
+      document.getElementById("optionsContainer").style.display = "none";
+      // Remove timeupdate listener so it won't pause again.
+      document.getElementById("jokeVideo").removeEventListener("timeupdate", timeUpdateHandler);
+      continueVideoPlayback();
+    } else {
+      alert("Incorrect guess. Try again!");
+      continueVideoPlayback();
+    }
+  } catch (err) {
+    hideLoading();
+    console.error("Guess error:", err);
+    alert("Error submitting guess: " + (err.message || "Unknown error") + "\nYou can skip to continue.");
+    displaySkipButton();
   }
 }
 
 async function handleReveal(jokeId) {
+  if (!jokeContract) {
+    alert("Wallet not connected. Please refresh after connecting your wallet.");
+    continueVideoPlayback();
+    return;
+  }
   try {
-    const tx = await jokeContract.revealPunchline(jokeId, { value: ethers.utils.parseEther(revealFee) });
+    const userAddress = await signer.getAddress();
+    const guessCount = Number(await jokeContract.guesses(jokeId, userAddress));
+    if (guessCount < MAX_GUESSES) {
+      alert("You still have free guesses available. Use them before paying to reveal.");
+      continueVideoPlayback();
+      return;
+    }
+    showLoading();
+    const overrides = { value: ethers.utils.parseEther(REVEAL_FEE), gasLimit: 400000 };
+    const tx = await jokeContract.revealPunchline(jokeId, overrides);
     const receipt = await tx.wait();
-    let punchline = "";
-    receipt.events.forEach((event) => {
-      if (event.event === "PunchlineRevealed") {
-        punchline = event.args.punchline;
-      }
-    });
-    if (punchline) {
-      alert("Punchline revealed: " + punchline);
-    } else {
-      alert("Punchline revealed.");
-    }
-    // Resume video playback for the corresponding video element.
-    const videoElem = document.getElementById("jokeVideo");
-    if (videoElem) {
-      videoElem.play();
-    }
+    hideLoading();
+    const punchlineEvent = receipt.events.find(e => e.event === "PunchlineRevealed");
+    const punchline = punchlineEvent ? punchlineEvent.args.punchline : "Revealed";
+    alert(`Punchline: ${punchline}`);
+    jokeAnswered = true;
+    document.getElementById("optionsContainer").style.display = "none";
+    document.getElementById("jokeVideo").removeEventListener("timeupdate", timeUpdateHandler);
+    continueVideoPlayback();
   } catch (err) {
-    console.error("Error revealing punchline:", err);
+    hideLoading();
+    console.error("Reveal error:", err);
+    alert("Error revealing punchline: " + (err.message || "Unknown error") + "\nYou can skip to continue.");
+    displaySkipButton();
   }
 }
 
-// --- Video Handling Functions ---
-// This function attaches an event listener to the single video element.
-// When the video's currentTime reaches the configured revealTime, it pauses and prompts for a guess.
-function setupVideoListener() {
-  const video = document.getElementById("jokeVideo");
-  // Remove any previous "timeupdate" listeners by cloning the node.
-  const newVideo = video.cloneNode(true);
-  video.parentNode.replaceChild(newVideo, video);
-
-  newVideo.addEventListener("timeupdate", async function() {
-    const currentConfig = videosConfig[currentVideoIndex];
-    if (newVideo.currentTime >= currentConfig.revealTime && !newVideo.paused) {
-      newVideo.pause();
-      await handleGuess(currentConfig.jokeId);
+// --- Display Options ---
+async function displayOptions(jokeId) {
+  try {
+    if (!(await isJokeInitialized(jokeId))) {
+      alert("This joke has not been initialized yet.");
+      continueVideoPlayback();
+      return;
     }
-  });
+    
+    const config = videosConfig.find(v => v.jokeId === jokeId);
+    const optionsContainer = document.getElementById("optionsContainer");
+    const optionsDiv = document.getElementById("options");
+    
+    optionsContainer.style.display = "block";
+    optionsDiv.innerHTML = "";
+    
+    config.options.forEach((option, index) => {
+      const button = document.createElement("button");
+      button.textContent = option;
+      button.addEventListener("click", async () => {
+        clearTimeout(optionsTimeout);
+        await handleGuess(jokeId, index);
+      });
+      optionsDiv.appendChild(button);
+    });
+    
+    const revealButton = document.createElement("button");
+    revealButton.textContent = "Reveal Punchline (0.01 ETH)";
+    revealButton.addEventListener("click", async () => {
+      clearTimeout(optionsTimeout);
+      await handleReveal(jokeId);
+    });
+    optionsDiv.appendChild(revealButton);
+    
+    // No skip button added here; it will be added only if a transaction fails.
+    
+    // Auto-resume playback if no option is selected within 10 seconds.
+    optionsTimeout = setTimeout(() => {
+      continueVideoPlayback();
+    }, 10000);
+  } catch (err) {
+    console.error("Error displaying options:", err);
+    continueVideoPlayback();
+  }
 }
 
-// Update the video element to display the current video's source and reset playback.
-function updateVideo() {
-  const video = document.getElementById("jokeVideo");
-  const currentConfig = videosConfig[currentVideoIndex];
-  video.src = currentConfig.source;
-  video.load();
-  video.currentTime = 0;
-  video.play();
-  // Reset guess count for the new video.
-  guessCounts[currentConfig.jokeId] = 0;
-  setupVideoListener();
-}
-
-// --- Navigation Button Handlers ---
+// --- Navigation ---
 function setupNavigationButtons() {
   const prevButton = document.getElementById("prevButton");
   const nextButton = document.getElementById("nextButton");
-
   prevButton.addEventListener("click", () => {
     if (currentVideoIndex > 0) {
       currentVideoIndex--;
       updateVideo();
     }
   });
-
   nextButton.addEventListener("click", () => {
     if (currentVideoIndex < videosConfig.length - 1) {
       currentVideoIndex++;
@@ -179,9 +321,70 @@ function setupNavigationButtons() {
   });
 }
 
+// --- Admin: Initialize Joke ---
+async function addJoke() {
+  if (!jokeContract) {
+    alert("Wallet not connected. Please refresh after connecting your wallet.");
+    return;
+  }
+  
+  const jokeId = document.getElementById("jokeId").value;
+  const punchline = document.getElementById("punchline").value;
+  const mediaURI = document.getElementById("mediaURI").value;
+  const option0 = document.getElementById("option0").value;
+  const option1 = document.getElementById("option1").value;
+  const option2 = document.getElementById("option2").value;
+  const option3 = document.getElementById("option3").value;
+  
+  if (!option0 || !option1 || !option2 || !option3) {
+    alert("Please enter all 4 options.");
+    return;
+  }
+  
+  try {
+    showLoading();
+    const tx = await jokeContract.initializeJoke(
+      jokeId, punchline, option0, option1, option2, option3, mediaURI,
+      { gasLimit: 500000 }
+    );
+    await tx.wait();
+    hideLoading();
+    alert("Joke initialized successfully!");
+  } catch (err) {
+    hideLoading();
+    console.error("Error initializing joke:", err);
+    alert("Error initializing joke. Check console for details.");
+  }
+}
+
+function setupAddJokeForm() {
+  const addJokeForm = document.getElementById("addJokeForm");
+  addJokeForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await addJoke();
+  });
+}
+
+// --- MetaMask Event Listeners ---
+function setupMetaMaskListeners() {
+  if (window.ethereum) {
+    window.ethereum.on('chainChanged', () => {
+      console.log('MetaMask chain changed. Reloading...');
+      window.location.reload();
+    });
+    window.ethereum.on('accountsChanged', () => {
+      console.log('MetaMask account changed. Reloading...');
+      window.location.reload();
+    });
+  }
+}
+
 // --- Initialization ---
 window.addEventListener("load", async () => {
+  setupMetaMaskListeners();
+  // Automatically prompt wallet connection on page load.
   await connectWallet();
   setupNavigationButtons();
   updateVideo();
+  setupAddJokeForm();
 });
